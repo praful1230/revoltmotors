@@ -1,0 +1,294 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revolt Motors Voice Chat</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+    .container {
+      text-align: center;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    #status {
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    #transcript {
+      margin-top: 20px;
+      max-width: 500px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Revolt Motors Voice Assistant</h1>
+    <div id="status">Click Start to begin</div>
+    <button id="startBtn">Start Recording</button>
+    <button id="stopBtn" disabled>Stop Recording</button>
+    <div id="transcript"></div>
+  </div>
+
+  <script>
+    let ws;
+    let mediaRecorder;
+    let audioQueue = [];
+    let isPlaying = false;
+
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const status = document.getElementById('status');
+    const transcript = document.getElementById('transcript');
+
+    startBtn.addEventListener('click', startRecording);
+    stopBtn.addEventListener('click', stopRecording);
+
+    async function startRecording() {
+      try {
+        ws = new WebSocket('ws://localhost:8080');
+        ws.onopen = () => {
+          console.log('WebSocket connected');
+          status.textContent = 'Connected to server';
+        };
+
+        ws.onmessage = async (event) => {
+          const message = JSON.parse(event.data);
+          if (message.type === 'audio') {
+            queueAudio(message.data);
+          } else if (message.type === 'text') {
+            transcript.textContent = message.data;
+          } else if (message.type === 'interrupted') {
+            stopAudioPlayback();
+          } else if (message.type === 'error') {
+            status.textContent = 'Error: ' + message.data;
+          }
+        };
+
+        ws.onclose = () => {
+          status.textContent = 'Disconnected from server';
+          stopRecording();
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus'
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+            ws.send(event.data);
+          }
+        };
+
+        mediaRecorder.start(100);
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        status.textContent = 'Recording...';
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        status.textContent = 'Error: ' + error.message;
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      status.textContent = 'Click Start to begin';
+      stopAudioPlayback();
+    }
+
+    function queueAudio(base64Data) {
+      const audio = new Audio(`data:audio/mp3;base64,${base64Data}`);
+      audioQueue.push(audio);
+
+      if (!isPlaying) {
+        playNextAudio();
+      }
+    }
+
+    function playNextAudio() {
+      if (audioQueue.length === 0) {
+        isPlaying = false;
+        return;
+      }
+
+      isPlaying = true;
+      const audio = audioQueue.shift();
+      audio.play().then(() => {
+        audio.onended = playNextAudio;
+      }).catch((error) => {
+        console.error('Error playing audio:', error);
+        playNextAudio();
+      });
+    }
+
+    function stopAudioPlayback() {
+      audioQueue = [];
+      isPlaying = false;
+    }
+  </script>
+</body>
+</html> -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f0f0; }
+        #container { text-align: center; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        p { color: #555; }
+        #talkButton { background-color: #007bff; color: white; border: none; padding: 15px 30px; border-radius: 50px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
+        #talkButton:disabled { background-color: #cccccc; }
+        #talkButton.recording { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <h1>Revolt AI Assistant</h1>
+        <p>Press the button and start speaking</p>
+        <button id="talkButton">Talk</button>
+        <p><strong>You said:</strong> <span id="userText">...</span></p>
+        <p><strong>Rev replied:</strong> <span id="revText">...</span></p>
+    </div>
+
+    <script>
+        const talkButton = document.getElementById('talkButton');
+        const userText = document.getElementById('userText');
+        const revText = document.getElementById('revText');
+
+        let socket;
+        let mediaRecorder;
+        let isRecording = false;
+
+        function connectWebSocket() {
+            // Aapka WebSocket server 8080 port par chal raha hai
+            socket = new WebSocket('ws://localhost:8080');
+
+            socket.onopen = () => {
+                console.log('WebSocket connected!');
+                talkButton.disabled = false;
+                talkButton.textContent = 'Talk';
+            };
+
+            socket.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+
+                // --- YAHAN PAR ERROR FIX KIYA GAYA HAI ---
+                // Hum message ke 'data' par .startsWith() use nahi kar rahe.
+                // Uski jagah 'type' check kar rahe hain, jo ki ek safe tareeka hai.
+                if (message.type === 'text') {
+                    revText.textContent = message.data;
+                } else if (message.type === 'audio') {
+                    // Server se aayi audio ko play kar rahe hain
+                    const audioData = `data:audio/mpeg;base64,${message.data}`;
+                    const audio = new Audio(audioData);
+                    audio.play();
+                } else if (message.type === 'turn_complete') {
+                    // Ek turn poora hone par button ko wapas aam state mein la rahe hain
+                    talkButton.disabled = false;
+                    talkButton.classList.remove('recording');
+                    talkButton.textContent = 'Talk';
+                } else if (message.type === 'error') {
+                    console.error('Server error:', message.data);
+                    revText.textContent = `Error: ${message.data}`;
+                    talkButton.disabled = false;
+                    talkButton.classList.remove('recording');
+                    talkButton.textContent = 'Talk';
+                }
+            };
+
+            socket.onclose = () => {
+                console.log('WebSocket disconnected. Reconnecting...');
+                talkButton.disabled = true;
+                talkButton.textContent = 'Connecting...';
+                setTimeout(connectWebSocket, 2000); // 2 second baad reconnect karein
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                socket.close();
+            };
+        }
+
+        talkButton.onclick = async () => {
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+                            socket.send(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    talkButton.textContent = 'Stop';
+                    talkButton.classList.add('recording');
+                    userText.textContent = 'Listening...';
+                    revText.textContent = '...';
+                } catch (err) {
+                    console.error('Error accessing microphone:', err);
+                    alert('Microphone access was denied or not available.');
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                talkButton.textContent = 'Processing...';
+                talkButton.disabled = true;
+            }
+        };
+        
+        // Page load hote hi connection start karein
+        talkButton.disabled = true;
+        talkButton.textContent = 'Connecting...';
+        connectWebSocket();
+    </script>
+</body>
+</html>
