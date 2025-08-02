@@ -32,5 +32,4 @@ Make sure you have [Node.js](https://nodejs.org/) (version 18.0 or higher) insta
 ### 2. Clone the Repository
 
 ```bash
-git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
-cd your-repo-name
+git clone https://github.com/praful1230/revoltmotors.git
